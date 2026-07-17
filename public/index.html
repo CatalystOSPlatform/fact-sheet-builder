@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Fact Sheet Builder</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{ --ink:#0B1A4A; --line:#e3e7f3; --accent:#6818F8; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:Arial,Helvetica,sans-serif; color:var(--ink); background:#f4f6fb; }
+  header{ display:flex; align-items:center; justify-content:space-between; padding:14px 22px; background:#fff; border-bottom:1px solid var(--line); }
+  header b{ font-size:16px; letter-spacing:.02em; }
+  main{ max-width:1200px; margin:24px auto; padding:0 20px; }
+  .card{ background:#fff; border:1px solid var(--line); border-radius:14px; padding:20px; margin-bottom:20px; }
+  button{ font-family:inherit; font-weight:800; border:none; border-radius:10px; padding:11px 16px; cursor:pointer; }
+  .primary{ background:linear-gradient(135deg,#1921FE,#6818F8); color:#fff; }
+  .ghost{ background:#fff; border:1px solid #d3dcdd; color:var(--ink); }
+  input[type=email],input[type=password]{ width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:8px; font-family:inherit; margin-bottom:10px; }
+  .gallery{ display:flex; gap:24px; flex-wrap:wrap; }
+  .frame{ width:520px; }
+  .frame h4{ margin:0 0 8px; font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#8a99a8; }
+  .stage{ width:520px; height:673px; border:1px solid var(--line); border-radius:10px; background:#fff; overflow:hidden; position:relative; }
+  .stage img{ width:100%; height:100%; object-fit:contain; display:block; }
+  .stage .fit{ transform-origin:top left; position:absolute; left:0; top:0; }
+  .muted{ color:#5a6b6f; font-size:13px; }
+  #spinner{ display:none; align-items:center; gap:10px; margin-top:12px; }
+  .dot{ width:18px;height:18px;border:3px solid #ddd;border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+<header>
+  <b>FACT SHEET BUILDER</b>
+  <div id="who" class="muted"></div>
+</header>
+<main>
+
+  <!-- LOGIN -->
+  <div id="auth" class="card" style="max-width:360px;">
+    <h3 style="margin-top:0;">Sign in</h3>
+    <input id="email" type="email" placeholder="you@firm.com" />
+    <input id="password" type="password" placeholder="password" />
+    <div style="display:flex; gap:8px;">
+      <button class="primary" onclick="signIn()">Sign in</button>
+      <button class="ghost" onclick="signUp()">Create account</button>
+    </div>
+    <div id="authMsg" class="muted" style="margin-top:10px;"></div>
+  </div>
+
+  <!-- APP -->
+  <div id="app" style="display:none;">
+    <div class="card">
+      <h3 style="margin-top:0;">1 · Upload a fact sheet page (PNG)</h3>
+      <input id="file" type="file" accept="image/png,image/jpeg" onchange="onFile(event)" />
+      <div id="spinner"><div class="dot"></div><span id="spinTxt" class="muted">Building your page…</span></div>
+    </div>
+
+    <div class="card">
+      <button id="buildBtn" class="primary" onclick="confirmBuild()" disabled>Confirm build this file</button>
+      <button class="ghost" onclick="signOut()" style="margin-left:8px;">Sign out</button>
+    </div>
+
+    <div class="gallery">
+      <div class="frame">
+        <h4>Original</h4>
+        <div class="stage"><img id="origImg" alt="" /></div>
+      </div>
+      <div class="frame">
+        <h4>AI build</h4>
+        <div class="stage"><div id="buildStage" class="fit"></div></div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ---- Supabase (public anon key is safe in the browser) ----
+const SUPABASE_URL = window.__SUPABASE_URL__ || 'PASTE_SUPABASE_URL';
+const SUPABASE_ANON_KEY = window.__SUPABASE_ANON_KEY__ || 'PASTE_SUPABASE_ANON_KEY';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let currentImage = null; // { base64, mediaType }
+
+async function refreshAuth(){
+  const { data:{ user } } = await sb.auth.getUser();
+  document.getElementById('auth').style.display = user ? 'none' : 'block';
+  document.getElementById('app').style.display  = user ? 'block' : 'none';
+  document.getElementById('who').textContent = user ? user.email : '';
+}
+async function signUp(){ const {error}=await sb.auth.signUp({ email:email.value, password:password.value }); authMsg.textContent = error ? error.message : 'Account created — sign in.'; }
+async function signIn(){ const {error}=await sb.auth.signInWithPassword({ email:email.value, password:password.value }); authMsg.textContent = error ? error.message : ''; refreshAuth(); }
+async function signOut(){ await sb.auth.signOut(); refreshAuth(); }
+
+function onFile(e){
+  const f = e.target.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    const dataUrl = r.result;
+    document.getElementById('origImg').src = dataUrl;
+    const m = /^data:(image\/\w+);base64,(.+)$/.exec(dataUrl);
+    currentImage = { base64: m[2], mediaType: m[1] };
+    document.getElementById('buildBtn').disabled = false;
+  };
+  r.readAsDataURL(f);
+}
+
+async function confirmBuild(){
+  if(!currentImage) return;
+  const sp = document.getElementById('spinner'); sp.style.display='flex';
+  document.getElementById('buildBtn').disabled = true;
+  try{
+    const resp = await fetch('/api/build', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ imageBase64: currentImage.base64, mediaType: currentImage.mediaType })
+    });
+    const out = await resp.json();
+    if(out.error) throw new Error(out.error);
+    renderBuild(out.html);
+    await saveProject(out.html);
+  }catch(err){
+    document.getElementById('spinTxt').textContent = 'Build failed: ' + err.message;
+    return;
+  }finally{
+    document.getElementById('buildBtn').disabled = false;
+  }
+  sp.style.display='none';
+}
+
+function renderBuild(html){
+  const stage = document.getElementById('buildStage');
+  stage.innerHTML = html;
+  // autofit: measure the build's own root width, scale to the 520px frame
+  const root = stage.firstElementChild;
+  const w = (root && parseFloat((root.style.width||'').replace('px',''))) || 2550;
+  stage.style.transform = 'scale(' + (520 / w) + ')';
+}
+
+async function saveProject(html){
+  const { data:{ user } } = await sb.auth.getUser();
+  if(!user) return;
+  await sb.from('projects').insert({ owner:user.id, title:'Fact sheet', data:{ html } });
+}
+
+sb.auth.onAuthStateChange(()=>refreshAuth());
+refreshAuth();
+</script>
+</body>
+</html>
