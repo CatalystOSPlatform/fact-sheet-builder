@@ -200,6 +200,7 @@ async function confirmBuild(){
     html = html.replace(/^```html\s*/i,'').replace(/^```\s*/i,'').replace(/```\s*$/i,'').trim();
     const mm = html.match(/<[\s\S]*>/); if(mm) html = mm[0];
     if(!html || html.length < 120) throw new Error('The build came back empty or was cut off — try again.');
+    if(!/<\/div>\s*$/.test(html)) throw new Error('The build was cut off before finishing (free-plan time limit). Set BUILD_MODEL to a faster model, or upgrade Vercel to Pro, then try again.');
     stopStages();
     document.getElementById('spinTxt').textContent = 'Done! Placing your build…';
     renderBuild(html);
