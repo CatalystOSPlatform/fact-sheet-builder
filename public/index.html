@@ -178,17 +178,32 @@ async function confirmBuild(){
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ imageBase64: currentImage.base64, mediaType: currentImage.mediaType })
     });
-    const text = await resp.text();
-    let out;
-    try{ out = JSON.parse(text); }
-    catch(_){ throw new Error(resp.status===504 || /timeout|timed out/i.test(text)
-      ? 'The build took too long and timed out. Try again — dense pages sometimes need a second attempt.'
-      : ('Server error ('+resp.status+'). '+text.slice(0,140))); }
-    if(out.error) throw new Error(out.error);
+    if(!resp.ok && !resp.body){
+      const t = await resp.text();
+      throw new Error(resp.status===504 ? 'The build took too long and timed out. Try again.' : ('Server error ('+resp.status+'). '+t.slice(0,140)));
+    }
+    // stream the HTML as it generates
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder();
+    let acc='';
+    while(true){
+      const {done, value} = await reader.read();
+      if(done) break;
+      acc += dec.decode(value, {stream:true});
+      const kb = Math.round(acc.length/1024);
+      const secs = Math.floor((Date.now()-_t0)/1000);
+      document.getElementById('spinTxt').textContent = 'Building your page…  '+kb+' KB  ·  '+secs+'s';
+    }
+    // the stream may be a JSON error instead of HTML
+    let html = acc.trim();
+    if(html.startsWith('{') && /"error"/.test(html)){ try{ throw new Error(JSON.parse(html).error); }catch(e){ throw new Error(JSON.parse(html).error||html); } }
+    html = html.replace(/^```html\s*/i,'').replace(/^```\s*/i,'').replace(/```\s*$/i,'').trim();
+    const mm = html.match(/<[\s\S]*>/); if(mm) html = mm[0];
+    if(!html || html.length < 120) throw new Error('The build came back empty or was cut off — try again.');
     stopStages();
     document.getElementById('spinTxt').textContent = 'Done! Placing your build…';
-    renderBuild(out.html);
-    await saveProject(out.html);
+    renderBuild(html);
+    await saveProject(html);
   }catch(err){
     stopStages();
     document.getElementById('spinTxt').textContent = 'Build failed: ' + err.message;

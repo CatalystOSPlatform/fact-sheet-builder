@@ -34,9 +34,15 @@ module.exports = async (req, res) => {
 
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-    const msg = await anthropic.messages.create({
+    // Stream so bytes flow immediately (keeps the serverless function alive and
+    // lets the browser show real progress). Forward text as it generates.
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache');
+
+    const stream = await anthropic.messages.create({
       model: 'claude-sonnet-4-5',
       max_tokens: 22000,
+      stream: true,
       system: DIRECTIVE + (extraInstructions ? ('\n\nAdditional instructions: ' + extraInstructions) : ''),
       messages: [{
         role: 'user',
@@ -47,15 +53,15 @@ module.exports = async (req, res) => {
       }]
     });
 
-    let html = (msg.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
-    // strip accidental code fences
-    html = html.replace(/^```html\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
-    const m = html.match(/<[\s\S]*>/);
-    if (m) html = m[0];
-
-    if (!html || html.length < 120) return res.status(502).json({ error: 'Empty build from model' });
-    return res.status(200).json({ html });
+    for await (const ev of stream) {
+      if (ev.type === 'content_block_delta' && ev.delta && ev.delta.type === 'text_delta') {
+        res.write(ev.delta.text);
+      }
+    }
+    return res.end();
   } catch (e) {
+    // If we already started streaming, just close; otherwise send JSON error.
+    if (res.headersSent) { try { res.end(); } catch(_){} return; }
     return res.status(500).json({ error: String((e && e.message) || e) });
   }
 };
