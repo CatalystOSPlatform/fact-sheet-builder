@@ -133,20 +133,11 @@ function onFile(e){
   r.onload = () => {
     const dataUrl = r.result;
     document.getElementById('origImg').src = dataUrl;
-    // downscale to keep the request small + fast (long edge <= 1600px, JPEG)
-    const img = new Image();
-    img.onload = () => {
-      const maxEdge = 2000;
-      const scale = Math.min(1, maxEdge / Math.max(img.width, img.height));
-      const w = Math.round(img.width*scale), h = Math.round(img.height*scale);
-      const c = document.createElement('canvas'); c.width=w; c.height=h;
-      c.getContext('2d').drawImage(img,0,0,w,h);
-      const jpeg = c.toDataURL('image/jpeg', 0.85);
-      const m = /^data:(image\/\w+);base64,(.+)$/.exec(jpeg);
-      currentImage = { base64: m[2], mediaType: m[1] };
-      document.getElementById('buildBtn').disabled = false;
-    };
-    img.src = dataUrl;
+    // send the ORIGINAL high-resolution image as-is (no downscale, no re-encode)
+    const m = /^data:(image\/\w+);base64,(.+)$/.exec(dataUrl);
+    if(!m){ alert('Please upload a PNG or JPEG image.'); return; }
+    currentImage = { base64: m[2], mediaType: m[1] };
+    document.getElementById('buildBtn').disabled = false;
   };
   r.readAsDataURL(f);
 }
