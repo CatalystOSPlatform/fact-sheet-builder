@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Fact Sheet Builder</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{ --ink:#0B1A4A; --line:#e3e7f3; --accent:#6818F8; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:Arial,Helvetica,sans-serif; color:#eef1ff; min-height:100vh;
+    background:#05060f; position:relative; overflow-x:hidden; }
+  /* animated CatalystOS gradient field */
+  body::before{ content:""; position:fixed; inset:-40%; z-index:0; pointer-events:none;
+    background:
+      radial-gradient(38% 46% at 20% 28%, rgba(104,24,248,.62), transparent 60%),
+      radial-gradient(40% 44% at 82% 22%, rgba(25,33,254,.55), transparent 60%),
+      radial-gradient(46% 50% at 68% 82%, rgba(255,74,140,.42), transparent 62%),
+      radial-gradient(44% 48% at 26% 82%, rgba(0,209,255,.40), transparent 62%);
+    filter:saturate(1.35); animation:drift 16s ease-in-out infinite alternate; }
+  @keyframes drift{
+    0%{ transform:translate(-4%,-3%) scale(1.05) rotate(0deg); }
+    50%{ transform:translate(4%,3%) scale(1.15) rotate(8deg); }
+    100%{ transform:translate(-2%,4%) scale(1.08) rotate(-6deg); } }
+  header{ position:relative; z-index:2; display:flex; align-items:center; justify-content:space-between;
+    padding:16px 26px; background:rgba(8,10,26,.72); backdrop-filter:blur(14px);
+    border-bottom:1px solid rgba(255,255,255,.10); }
+  .brand{ display:flex; align-items:center; gap:12px; }
+  .brand .mark{ width:26px; height:26px; border-radius:7px;
+    background:linear-gradient(135deg,#1921FE,#6818F8 55%,#ff4a8c); box-shadow:0 0 18px rgba(104,24,248,.7); }
+  .brand b{ font-size:15px; letter-spacing:.16em; font-weight:800; }
+  .brand span{ font-size:10px; letter-spacing:.34em; color:#8ea0ff; display:block; margin-top:2px; }
+  main{ position:relative; z-index:2; max-width:1200px; margin:34px auto; padding:0 20px; }
+  .card{ background:rgba(14,17,38,.72); backdrop-filter:blur(16px); border:1px solid rgba(255,255,255,.12);
+    border-radius:16px; padding:22px; margin-bottom:20px; box-shadow:0 24px 70px rgba(0,0,0,.45); }
+  .card h3{ color:#fff; }
+  button{ font-family:inherit; font-weight:800; border:none; border-radius:10px; padding:11px 16px; cursor:pointer; }
+  .primary{ background:linear-gradient(135deg,#1921FE,#6818F8); color:#fff; box-shadow:0 6px 20px rgba(104,24,248,.45); }
+  .ghost{ background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.22); color:#eef1ff; }
+  input[type=email],input[type=password]{ width:100%; padding:10px 12px; border:1px solid rgba(255,255,255,.18);
+    background:rgba(255,255,255,.05); color:#fff; border-radius:8px; font-family:inherit; margin-bottom:10px; }
+  input::placeholder{ color:#8b93c0; }
+  .gallery{ display:flex; gap:24px; flex-wrap:wrap; }
+  .frame{ width:520px; }
+  .frame h4{ margin:0 0 8px; font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#9fb0ff; }
+  .stage{ width:520px; height:673px; border:1px solid rgba(255,255,255,.14); border-radius:12px;
+    background:#fff; overflow:hidden; position:relative; box-shadow:0 24px 70px rgba(0,0,0,.5); }
+  .stage img{ width:100%; height:100%; object-fit:contain; display:block; }
+  .stage .fit{ transform-origin:top left; position:absolute; left:0; top:0; }
+  .muted{ color:#9aa4d4; font-size:13px; }
+  #spinner{ display:none; align-items:center; gap:10px; margin-top:12px; }
+  .dot{ width:18px;height:18px;border:3px solid rgba(255,255,255,.25);border-top-color:#8b6cff;border-radius:50%;animation:spin .8s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+<div style="width:100%; background:radial-gradient(120% 180% at 50% -40%, #12296f 0%, #081A53 60%); border-bottom:2px solid; border-image:linear-gradient(90deg,#1921FE,#6818F8,#C1229C,#FD5920,#FDA71A) 1; padding:9px 20px; display:flex; align-items:center; justify-content:center; gap:11px; font-family:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; position:relative; z-index:3;">
+  <span style="width:25px; height:25px; border-radius:8px; background:linear-gradient(135deg,#1921FE,#6818F8 38%,#C1229C 64%,#FD5920 84%,#FDA71A); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; letter-spacing:-0.02em; color:#fff; flex:none; box-shadow:0 3px 10px rgba(105,24,248,0.5), inset 0 1px 0 rgba(255,255,255,0.28);">OS</span>
+  <span style="font-size:10.5px; font-weight:700; letter-spacing:0.15em; text-transform:uppercase; color:#8b95c4;">Powered by</span>
+  <span style="font-size:14px; font-weight:700; letter-spacing:-0.01em; color:#fff;">Catalyst<span style="background:linear-gradient(90deg,#6818F8,#C1229C 50%,#FD7715); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;">OS</span></span>
+</div>
+<header>
+  <div class="brand">
+    <div class="mark"></div>
+    <div><b>FACT SHEET BUILDER</b><span>CATALYST OS</span></div>
+  </div>
+  <div id="who" class="muted"></div>
+</header>
+<main>
+
+  <!-- LOGIN -->
+  <div id="auth" class="card" style="max-width:360px;">
+    <h3 style="margin-top:0;">Sign in</h3>
+    <input id="email" type="email" placeholder="you@firm.com" />
+    <input id="password" type="password" placeholder="password" />
+    <div style="display:flex; gap:8px;">
+      <button class="primary" onclick="signIn()">Sign in</button>
+      <button class="ghost" onclick="signUp()">Create account</button>
+    </div>
+    <div id="authMsg" class="muted" style="margin-top:10px;"></div>
+  </div>
+
+  <!-- APP -->
+  <div id="app" style="display:none;">
+    <div class="card">
+      <h3 style="margin-top:0;">1 · Upload a fact sheet page (PNG)</h3>
+      <input id="file" type="file" accept="image/png,image/jpeg" onchange="onFile(event)" />
+      <div id="spinner"><div class="dot"></div><span id="spinTxt" class="muted">Building your page…</span></div>
+    </div>
+
+    <div class="card">
+      <button id="buildBtn" class="primary" onclick="confirmBuild()" disabled>Confirm build this file</button>
+      <button class="ghost" onclick="signOut()" style="margin-left:8px;">Sign out</button>
+    </div>
+
+    <div class="gallery">
+      <div class="frame">
+        <h4>Original</h4>
+        <div class="stage"><img id="origImg" alt="" /></div>
+      </div>
+      <div class="frame">
+        <h4>AI build</h4>
+        <div class="stage"><div id="buildStage" class="fit"></div></div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ---- Supabase (public anon key is safe in the browser) ----
+const SUPABASE_URL = window.__SUPABASE_URL__ || 'https://fstwhocuxtzfzkqiueqo.supabase.co';
+const SUPABASE_ANON_KEY = window.__SUPABASE_ANON_KEY__ || 'sb_publishable_H89hBYD2V9Z-NM3VJK9lpg_w-5fspMu';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let currentImage = null; // { base64, mediaType }
+
+async function refreshAuth(){
+  const { data:{ user } } = await sb.auth.getUser();
+  document.getElementById('auth').style.display = user ? 'none' : 'block';
+  document.getElementById('app').style.display  = user ? 'block' : 'none';
+  document.getElementById('who').textContent = user ? user.email : '';
+}
+async function signUp(){ const {error}=await sb.auth.signUp({ email:email.value, password:password.value }); authMsg.textContent = error ? error.message : 'Account created — sign in.'; }
+async function signIn(){ const {error}=await sb.auth.signInWithPassword({ email:email.value, password:password.value }); authMsg.textContent = error ? error.message : ''; refreshAuth(); }
+async function signOut(){ await sb.auth.signOut(); refreshAuth(); }
+
+function onFile(e){
+  const f = e.target.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    const dataUrl = r.result;
+    document.getElementById('origImg').src = dataUrl;
+    // downscale to keep the request small + fast (long edge <= 1600px, JPEG)
+    const img = new Image();
+    img.onload = () => {
+      const maxEdge = 2000;
+      const scale = Math.min(1, maxEdge / Math.max(img.width, img.height));
+      const w = Math.round(img.width*scale), h = Math.round(img.height*scale);
+      const c = document.createElement('canvas'); c.width=w; c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      const jpeg = c.toDataURL('image/jpeg', 0.85);
+      const m = /^data:(image\/\w+);base64,(.+)$/.exec(jpeg);
+      currentImage = { base64: m[2], mediaType: m[1] };
+      document.getElementById('buildBtn').disabled = false;
+    };
+    img.src = dataUrl;
+  };
+  r.readAsDataURL(f);
+}
+
+let _stageTimer=null, _t0=0;
+function startStages(){
+  _t0=Date.now();
+  const stages=[
+    'Uploading your page…',
+    'Analyzing the layout & structure…',
+    'Sampling colors, fonts & spacing…',
+    'Rebuilding text, tables & numbers…',
+    'Placing logo & image placeholders…',
+    'Assembling the 2550 × 3300 page…',
+    'Final touches — almost there…'
+  ];
+  let i=0;
+  const tick=()=>{
+    const secs=Math.floor((Date.now()-_t0)/1000);
+    const label=stages[Math.min(i,stages.length-1)];
+    document.getElementById('spinTxt').textContent = label+'  ·  '+secs+'s';
+    if(i<stages.length-1) i++;
+  };
+  tick();
+  _stageTimer=setInterval(tick, 4000);
+}
+function stopStages(){ if(_stageTimer){ clearInterval(_stageTimer); _stageTimer=null; } }
+
+async function confirmBuild(){
+  if(!currentImage) return;
+  const sp = document.getElementById('spinner'); sp.style.display='flex';
+  document.getElementById('buildBtn').disabled = true;
+  startStages();
+  try{
+    const resp = await fetch('/api/build', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ imageBase64: currentImage.base64, mediaType: currentImage.mediaType })
+    });
+    if(!resp.ok && !resp.body){
+      const t = await resp.text();
+      throw new Error(resp.status===504 ? 'The build took too long and timed out. Try again.' : ('Server error ('+resp.status+'). '+t.slice(0,140)));
+    }
+    // stream the HTML as it generates
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder();
+    let acc='';
+    while(true){
+      const {done, value} = await reader.read();
+      if(done) break;
+      acc += dec.decode(value, {stream:true});
+      const kb = Math.round(acc.length/1024);
+      const secs = Math.floor((Date.now()-_t0)/1000);
+      document.getElementById('spinTxt').textContent = 'Building your page…  '+kb+' KB  ·  '+secs+'s';
+    }
+    // the stream may be a JSON error instead of HTML
+    let html = acc.trim();
+    if(html.startsWith('{') && /"error"/.test(html)){ try{ throw new Error(JSON.parse(html).error); }catch(e){ throw new Error(JSON.parse(html).error||html); } }
+    html = html.replace(/^```html\s*/i,'').replace(/^```\s*/i,'').replace(/```\s*$/i,'').trim();
+    const mm = html.match(/<[\s\S]*>/); if(mm) html = mm[0];
+    if(!html || html.length < 120) throw new Error('The build came back empty or was cut off — try again.');
+    if(!/<\/div>\s*$/.test(html)) throw new Error('The build was cut off before finishing (free-plan time limit). Set BUILD_MODEL to a faster model, or upgrade Vercel to Pro, then try again.');
+    stopStages();
+    document.getElementById('spinTxt').textContent = 'Done! Placing your build…';
+    renderBuild(html);
+    await saveProject(html);
+  }catch(err){
+    stopStages();
+    document.getElementById('spinTxt').textContent = 'Build failed: ' + err.message;
+    return;
+  }finally{
+    document.getElementById('buildBtn').disabled = false;
+  }
+  sp.style.display='none';
+}
+
+function renderBuild(html){
+  const stage = document.getElementById('buildStage');
+  stage.innerHTML = html;
+  // autofit: measure the build's own root width, scale to the 520px frame
+  const root = stage.firstElementChild;
+  const w = (root && parseFloat((root.style.width||'').replace('px',''))) || 2550;
+  stage.style.transform = 'scale(' + (520 / w) + ')';
+}
+
+async function saveProject(html){
+  const { data:{ user } } = await sb.auth.getUser();
+  if(!user) return;
+  await sb.from('projects').insert({ owner:user.id, title:'Fact sheet', data:{ html } });
+}
+
+sb.auth.onAuthStateChange(()=>refreshAuth());
+refreshAuth();
+</script>
+</body>
+</html>
