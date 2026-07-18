@@ -5,13 +5,21 @@ just follow the steps in order. Nothing secret lives in these files; keys are pa
 Vercel and Supabase dashboards only.
 
 ## What's in this folder
-- `public/index.html` — the app users see: sign in → upload PNG → **Confirm build** → build appears.
-- `api/build.js` — the "middleman": takes the PNG, asks Claude to rebuild it at 2550×3300, returns HTML.
+- `index.html` — the app users see: sign in → upload PNG → **Confirm build** → build appears.
+- `api/build.js` — the build engine: Claude drafts the page, the server crops real image
+  assets from your PNG, then renders → compares → corrects the page against the original (2–3 passes).
+- `api/_render.js` — headless-Chromium helper that screenshots the draft so Claude can "see" and correct it.
 - `api/apply-change.js` — applies one plain-English edit to an existing build.
-- `package.json` — lists the one dependency (the Anthropic SDK).
-- `vercel.json` — lets the build functions run up to 60s.
-- `.env.example` — the names of the three keys you'll set in Vercel (examples only).
+- `package.json` — dependencies: Anthropic SDK, puppeteer-core, @sparticuz/chromium, sharp.
+- `vercel.json` — build function runs up to 300s with 3GB memory (needed for Chromium).
+- `.env.example` — the key names you'll set in Vercel (examples only).
 - `.gitignore` — keeps secrets/junk out of GitHub.
+
+### Requires Vercel Pro
+The render→compare→correct loop launches a headless browser and runs multiple Claude vision
+passes, so it needs Pro (300s / 3GB). Optional env vars:
+- `BUILD_MODEL` — override the model (default `claude-sonnet-4-5`).
+- `FIX_PASSES` — number of visual-correction passes, 0–3 (default `2`).
 
 ---
 
