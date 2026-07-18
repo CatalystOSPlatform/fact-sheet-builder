@@ -40,7 +40,7 @@ module.exports = async (req, res) => {
     res.setHeader('Cache-Control', 'no-cache');
 
     const stream = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5',
+      model: process.env.BUILD_MODEL || 'claude-sonnet-4-5',
       max_tokens: 22000,
       stream: true,
       system: DIRECTIVE + (extraInstructions ? ('\n\nAdditional instructions: ' + extraInstructions) : ''),
