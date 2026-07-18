@@ -77,8 +77,8 @@
 
 <script>
 // ---- Supabase (public anon key is safe in the browser) ----
-const SUPABASE_URL = window.__SUPABASE_URL__ || 'PASTE_SUPABASE_URL';
-const SUPABASE_ANON_KEY = window.__SUPABASE_ANON_KEY__ || 'PASTE_SUPABASE_ANON_KEY';
+const SUPABASE_URL = window.__SUPABASE_URL__ || 'https://fstwhocuxtzfzkqiueqo.supabase.co';
+const SUPABASE_ANON_KEY = window.__SUPABASE_ANON_KEY__ || 'sb_publishable_H89hBYD2V9Z-NM3VJK9lpg_w-5fspMu';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let currentImage = null; // { base64, mediaType }
