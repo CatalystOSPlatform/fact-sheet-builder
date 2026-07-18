@@ -41,24 +41,26 @@ module.exports = async (req, res) => {
     if (!imageBase64) return res.status(400).json({ error: 'Missing imageBase64' });
 
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const model = process.env.BUILD_MODEL || 'claude-sonnet-4-5';
+    const imgBlock = { type: 'image', source: { type: 'base64', media_type: mediaType || 'image/png', data: imageBase64 } };
+    const clean = (s) => { let h=(s||'').replace(/^```html\s*/i,'').replace(/^```\s*/i,'').replace(/```\s*$/i,'').trim(); const m=h.match(/<[\s\S]*>/); return m?m[0]:h; };
 
-    // Stream so bytes flow immediately (keeps the serverless function alive and
-    // lets the browser show real progress). Forward text as it generates.
+    // ---- Pass 1: full build (collected) ----
+    const first = await anthropic.messages.create({
+      model, max_tokens: 32000,
+      system: DIRECTIVE + (extraInstructions ? ('\n\nAdditional instructions: ' + extraInstructions) : ''),
+      messages: [{ role:'user', content: [ imgBlock, { type:'text', text:'Rebuild this page now. Return only the root <div> HTML.' } ] }]
+    });
+    const draft = clean((first.content || []).filter(b => b.type === 'text').map(b => b.text).join(''));
+
+    // ---- Pass 2: optical-match refinement (streamed) ----
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache');
 
     const stream = await anthropic.messages.create({
-      model: process.env.BUILD_MODEL || 'claude-sonnet-4-5',
-      max_tokens: 22000,
-      stream: true,
-      system: DIRECTIVE + (extraInstructions ? ('\n\nAdditional instructions: ' + extraInstructions) : ''),
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'image', source: { type: 'base64', media_type: mediaType || 'image/png', data: imageBase64 } },
-          { type: 'text', text: 'Rebuild this page now. Return only the root <div> HTML.' }
-        ]
-      }]
+      model, max_tokens: 32000, stream: true,
+      system: REFINE,
+      messages: [{ role:'user', content: [ imgBlock, { type:'text', text:'ORIGINAL image is above. DRAFT HTML to correct:\n\n' + draft } ] }]
     });
 
     for await (const ev of stream) {
